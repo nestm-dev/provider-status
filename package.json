@@ -1,6 +1,6 @@
 {
 	"name": "@nestm/provider-status",
-	"version": "0.1.0-alpha.0",
+	"version": "0.1.0-alpha.1",
 	"description": "Provider-neutral service status monitoring for NestJS 12 with polling, observable snapshots, dashboard HTTP projections, and optional AI SDK integration.",
 	"license": "BSD-3-Clause",
 	"author": "nestm",
