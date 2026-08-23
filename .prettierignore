@@ -1,0 +1,7 @@
+dist
+dist-tsc
+coverage
+pnpm-lock.yaml
+references
+CHANGELOG.md
+.changeset/

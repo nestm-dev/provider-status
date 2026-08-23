@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "31 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          install: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          install: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run verify:pack
+      - run: pnpm exec attw --pack . --profile esm-only
+      - uses: actions/upload-artifact@v7
+        with: { name: dist, path: dist }
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.12.0", "24"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          install: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # pnpm 11.20 requires Node >=22.13, while this package supports Node
+      # 22.12. Install with Node 24, then execute test binaries directly under
+      # the advertised runtime so pnpm cannot mask the compatibility floor.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "${{ matrix.node }}"
+          package-manager-cache: false
+      - name: Assert test runtime
+        env:
+          EXPECTED_NODE_VERSION: "${{ matrix.node }}"
+        run: |
+          node -e '
+            const actual = process.versions.node;
+            const expected = process.env.EXPECTED_NODE_VERSION;
+            const matches = expected.includes(".")
+              ? actual === expected
+              : actual.split(".")[0] === expected;
+            if (!matches) {
+              throw new Error("Expected Node " + expected + ", received " + actual);
+            }
+            console.log("Testing with Node " + actual);
+          '
+      - name: Unit tests
+        run: node ./node_modules/vitest/vitest.mjs run --config vitest.config.ts
+        env: { CI: "true" }
+      - name: Express E2E tests
+        run: node ./node_modules/vitest/vitest.mjs run --config vitest.config.e2e.ts
+        env:
+          CI: "true"
+          TEST_HTTP_ADAPTER: express
+      - name: Fastify E2E tests
+        run: node ./node_modules/vitest/vitest.mjs run --config vitest.config.e2e.ts
+        env:
+          CI: "true"
+          TEST_HTTP_ADAPTER: fastify
+      - name: Type tests
+        run: node ./node_modules/typescript/bin/tsc -p tests/types/tsconfig.json
+        env: { CI: "true" }
+
+  canary:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: nest-next
+            command: pnpm up "@nestjs/*@next" && pnpm run test
+          - name: ai-snapshot
+            command: pnpm up ai@snapshot && pnpm run test
+    name: Canary (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2
+        with:
+          install: false
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --no-frozen-lockfile
+      - run: ${{ matrix.command }}

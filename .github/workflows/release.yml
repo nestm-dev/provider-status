@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: pnpm/setup@v2
+        with:
+          install: false
+      # Do not set registry-url: npm Trusted Publishing uses OIDC.
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: pnpm }
+      - name: Assert pnpm supports native OIDC publishing
+        run: |
+          node -e '
+            const [major, minor] = require("child_process")
+              .execSync("pnpm --version").toString().trim().split(".").map(Number);
+            if (major < 11 || (major === 11 && minor < 11)) {
+              throw new Error("pnpm >= 11.11 required for OIDC trusted publishing");
+            }
+          '
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run verify
+      - name: Create release PR or publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm run release
+          version: pnpm changeset version
+          title: "chore: release @nestm/provider-status"
+          commit: "chore: release @nestm/provider-status"
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Reconcile git tag with npm
+        if: always()
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$VERSION" = "0.1.0-alpha.0" ]; then
+            echo "Skipping the intentionally untagged bootstrap release."
+            exit 0
+          fi
+          TAG="@nestm/provider-status@$VERSION"
+          if npm view "@nestm/provider-status@$VERSION" version > /dev/null 2>&1; then
+            git tag "$TAG" 2> /dev/null && git push origin "$TAG" || true
+          fi
