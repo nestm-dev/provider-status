@@ -46,7 +46,9 @@ clients, authentication, routing policy, and persistent telemetry.
 ## Installation
 
 ```sh
-pnpm add @nestm/provider-status@alpha @nestjs/common @nestjs/core reflect-metadata rxjs
+pnpm add @nestm/provider-status@alpha \
+	@nestjs/common@12.0.0-alpha.5 @nestjs/core@12.0.0-alpha.5 \
+	reflect-metadata rxjs
 ```
 
 Install AI SDK 7 only when using the optional AI integration:
@@ -469,6 +471,114 @@ untrusted content.
 
 The optional AI SDK entry point wraps language models and records real call outcomes into the same
 monitor used by public status sources.
+
+### With `@nestm/ai-sdk`
+
+When the application already uses `@nestm/ai-sdk`, attach the status middleware to its provider
+registry once. Every language model resolved from that registry is then monitored without wrapping
+models in individual services.
+
+```sh
+pnpm add @nestm/provider-status@alpha @nestm/ai-sdk@alpha ai zod \
+	@ai-sdk/openai @ai-sdk/anthropic @nestjs/config \
+	@nestjs/common@12.0.0-alpha.5 @nestjs/core@12.0.0-alpha.5 \
+	reflect-metadata rxjs
+```
+
+```ts
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOpenAI } from "@ai-sdk/openai";
+import { Injectable, Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { AiSdkModule, AiSdkService } from "@nestm/ai-sdk";
+import { ProviderStatusModule } from "@nestm/provider-status";
+import {
+	ProviderStatusAiSdkModule,
+	ProviderStatusAiSdkService,
+} from "@nestm/provider-status/ai-sdk";
+import { ProviderStatusHttpModule } from "@nestm/provider-status/http";
+import {
+	createAnthropicStatusProvider,
+	createOpenAIStatusProvider,
+} from "@nestm/provider-status/statuspage";
+
+@Injectable()
+export class ChatService {
+	constructor(private readonly ai: AiSdkService) {}
+
+	async complete(prompt: string): Promise<string> {
+		const result = await this.ai.generateText({
+			model: this.ai.languageModel(),
+			prompt,
+		});
+
+		return result.text;
+	}
+}
+
+@Module({
+	imports: [
+		ConfigModule.forRoot({ isGlobal: true }),
+		ProviderStatusModule.forRoot({
+			providers: [createOpenAIStatusProvider(), createAnthropicStatusProvider()],
+			polling: { intervalMs: 60_000 },
+		}),
+		AiSdkModule.forRootAsync({
+			imports: [ConfigModule, ProviderStatusAiSdkModule],
+			inject: [ConfigService, ProviderStatusAiSdkService],
+			useFactory: (config: ConfigService, providerHealth: ProviderStatusAiSdkService) => {
+				const openai = createOpenAI({
+					apiKey: config.getOrThrow<string>("OPENAI_API_KEY"),
+				});
+				const anthropic = createAnthropic({
+					apiKey: config.getOrThrow<string>("ANTHROPIC_API_KEY"),
+				});
+
+				return {
+					providers: { openai, anthropic },
+					registryOptions: {
+						languageModelMiddleware: providerHealth.middleware({
+							onUnknownProvider: "throw",
+						}),
+					},
+					defaults: { language: "openai:gpt-5-mini" },
+				};
+			},
+		}),
+		ProviderStatusHttpModule,
+	],
+	providers: [ChatService],
+	exports: [ChatService],
+})
+export class AppModule {}
+```
+
+Use registry-resolved models for every monitored call. The default above is returned by
+`ai.languageModel()`, while another registered model can be selected explicitly:
+
+```ts
+const model = this.ai.languageModel("anthropic:claude-sonnet-4-5");
+const result = await this.ai.generateText({ model, prompt });
+```
+
+Passing a raw Gateway string or a directly-created provider model to `AiSdkService.generateText()`
+bypasses the registry and therefore bypasses this middleware. `onUnknownProvider: "throw"` detects
+mapping mistakes; it does not reject calls because a provider is degraded. Add an `availability`
+policy as described below when calls should be blocked. `ProviderStatusHttpModule` exposes the same
+observations through the dashboard JSON and SSE routes documented above; application services can
+also consume the reactive warning feed from `ProviderStatusService.warnings$`.
+
+AI SDK Gateway models remain monitorable when the Gateway is registered in `providers` and resolved
+through a registry ID such as `gateway:openai/gpt-5-mini`. The default resolver maps the first
+Gateway model-ID segment to the corresponding `openai` or `anthropic` status provider.
+
+The registry hook currently monitors language models only. Embedding, image, speech, transcription,
+reranking, video, files, and skills operations exposed by `AiSdkService` are not observed by this
+integration.
+
+### With AI SDK directly
+
+Without `@nestm/ai-sdk`, wrap an application-owned model through the injectable service:
 
 ```ts
 import { Inject, Injectable, Module } from "@nestjs/common";
