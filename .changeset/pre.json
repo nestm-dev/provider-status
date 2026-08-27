@@ -1,11 +1,4 @@
 {
   "mode": "pre",
-  "tag": "alpha",
-  "initialVersions": {
-    "@nestm/provider-status": "0.1.0-alpha.0"
-  },
-  "changesets": [
-    "initial-provider-status-release",
-    "warm-otters-document"
-  ]
+  "tag": "alpha"
 }
