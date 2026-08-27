@@ -38,13 +38,14 @@ jobs:
       - run: pnpm run verify
       - name: Create release PR or publish to npm
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
-          publish: pnpm run release
-          version: pnpm changeset version
-          title: "chore: release @nestm/provider-status"
-          commit: "chore: release @nestm/provider-status"
-          createGithubReleases: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          publish-script: pnpm run release
+          version-script: pnpm changeset version
+          pr-title: "chore: release @nestm/provider-status"
+          commit-message: "chore: release @nestm/provider-status"
+          create-github-releases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Reconcile git tag with npm

@@ -17,7 +17,7 @@ RxJS observables, and includes optional dashboard HTTP/SSE and AI SDK integratio
 Provider status is advisory unless the application explicitly opts into availability enforcement.
 The package does not automatically retry, reroute, select fallback models, or fail NestJS readiness.
 
-> This package targets the NestJS 12 prerelease line and is published on the `alpha` dist-tag.
+> This package targets stable NestJS 12 and is itself published on the `alpha` dist-tag.
 
 ## Architecture and entry points
 
@@ -39,7 +39,7 @@ clients, authentication, routing policy, and persistent telemetry.
 ## Requirements
 
 - Node.js 22.12 or newer
-- NestJS `^12.0.0-alpha.5`
+- NestJS `^12.0.0`
 - RxJS `^7.8`
 - ESM
 
@@ -47,7 +47,7 @@ clients, authentication, routing policy, and persistent telemetry.
 
 ```sh
 pnpm add @nestm/provider-status@alpha \
-	@nestjs/common@12.0.0-alpha.5 @nestjs/core@12.0.0-alpha.5 \
+	@nestjs/common@12.0.1 @nestjs/core@12.0.1 \
 	reflect-metadata rxjs
 ```
 
@@ -59,10 +59,6 @@ pnpm add ai
 
 The HTTP entry point uses Nest's platform-neutral controller APIs. It does not add Express or
 Fastify as a peer dependency; use whichever Nest HTTP adapter the application already owns.
-
-NestJS 12 alpha packages may temporarily declare older sibling peer ranges. If a package manager
-rejects Nest's own prerelease peers, use the equivalent peer override until upstream ranges are
-widened.
 
 ## Quick start
 
@@ -481,7 +477,7 @@ models in individual services.
 ```sh
 pnpm add @nestm/provider-status@alpha @nestm/ai-sdk@alpha ai zod \
 	@ai-sdk/openai @ai-sdk/anthropic @nestjs/config \
-	@nestjs/common@12.0.0-alpha.5 @nestjs/core@12.0.0-alpha.5 \
+	@nestjs/common@12.0.1 @nestjs/core@12.0.1 \
 	reflect-metadata rxjs
 ```
 

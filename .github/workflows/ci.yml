@@ -54,7 +54,7 @@ jobs:
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      # pnpm 11.20 requires Node >=22.13, while this package supports Node
+      # pnpm 11.24 requires Node >=22.13, while this package supports Node
       # 22.12. Install with Node 24, then execute test binaries directly under
       # the advertised runtime so pnpm cannot mask the compatibility floor.
       - uses: actions/setup-node@v7
@@ -101,8 +101,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: nest-next
-            command: pnpm up "@nestjs/*@next" && pnpm run test
+          - name: nest-latest
+            command: pnpm up "@nestjs/*@latest" && pnpm run test
           - name: ai-snapshot
             command: pnpm up ai@snapshot && pnpm run test
     name: Canary (${{ matrix.name }})
