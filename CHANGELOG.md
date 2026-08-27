@@ -1,5 +1,13 @@
 # @nestm/provider-status
 
+## 0.1.0-alpha.2
+
+### Patch Changes
+
+- 0be7e33: Replace NestJS 12 prerelease peer ranges and development dependencies with the
+  stable NestJS 12 release line, and refresh the package's direct development
+  dependencies to their current stable releases.
+
 ## 0.1.0-alpha.1
 
 ### Minor Changes
